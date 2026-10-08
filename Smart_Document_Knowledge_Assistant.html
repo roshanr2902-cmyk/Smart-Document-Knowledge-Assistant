@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart Document Knowledge Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%}
+body{background:#0F172A;color:#E2E8F0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;margin:0;
+ background-image:radial-gradient(800px 400px at 85% -10%,rgba(99,102,241,.16),transparent),radial-gradient(600px 400px at -5% 110%,rgba(16,185,129,.08),transparent)}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.glass{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.ring-wrap{position:relative;border-radius:18px;padding:1px;background:rgba(255,255,255,.1);transition:background .3s,box-shadow .3s}
+.ring-wrap:focus-within{background:linear-gradient(120deg,#6366F1,#10B981,#6366F1);box-shadow:0 0 28px rgba(99,102,241,.35)}
+.press{transition:transform .15s,background .2s,border-color .2s}
+.press:hover{transform:scale(1.03)}.press:active{transform:scale(.95)}
+.drop{transition:all .25s}.drop.over{border-color:#6366F1;background:rgba(99,102,241,.12);transform:scale(1.015);box-shadow:0 0 0 4px rgba(99,102,241,.15)}
+.drop.over .cloud{animation:bob .8s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-5px)}}
+@keyframes ping2{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.4);opacity:0}}
+.pulse::after{content:"";position:absolute;inset:0;border-radius:99px;background:#10B981;animation:ping2 1.8s infinite}
+@keyframes sweep{to{transform:rotate(360deg)}}
+.radar{animation:sweep 1.2s linear infinite;transform-origin:50% 50%}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}}
+.msg{animation:rise .3s ease-out}
+.cite{font-family:'JetBrains Mono',monospace;font-size:11px;color:#A5B4FC;background:rgba(99,102,241,.16);border:1px solid rgba(99,102,241,.35);padding:0 5px;border-radius:6px;cursor:pointer;margin:0 1px;transition:all .15s}
+.cite:hover{background:#6366F1;color:#fff}
+.src{transition:all .25s;border:1px solid rgba(255,255,255,.1)}
+.src.hl{border-color:#6366F1;background:rgba(99,102,241,.14);box-shadow:0 0 0 3px rgba(99,102,241,.2)}
+mark{background:rgba(16,185,129,.22);color:#6EE7B7;border-radius:3px;padding:0 2px}
+.bar{height:5px;border-radius:9px;background:rgba(255,255,255,.08);overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:9px;background:linear-gradient(90deg,#6366F1,#10B981);transition:width .3s}
+.scroll::-webkit-scrollbar{width:8px}.scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:9px}
+.caret::after{content:"▍";color:#6366F1;animation:blink 1s steps(2) infinite}@keyframes blink{50%{opacity:0}}
+:focus-visible{outline:2px solid #818CF8;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="h-full flex flex-col max-w-[1400px] mx-auto p-3 sm:p-5 gap-4">
+  <header class="flex items-center justify-between gap-3">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="w-9 h-9 rounded-xl grid place-items-center bg-gradient-to-br from-indigo-500 to-indigo-700 shadow-lg shadow-indigo-500/30 text-white" id="logo"></div>
+      <div class="min-w-0"><h1 class="font-semibold text-[15px] leading-tight truncate">Smart Document Knowledge Assistant</h1>
+      <p class="text-xs text-slate-400 truncate">Ask your notes. Every answer links back to the source text.</p></div>
+    </div>
+    <div class="glass rounded-full pl-3 pr-4 py-1.5 flex items-center gap-2 text-xs font-medium text-emerald-300 shrink-0">
+      <span class="relative w-2 h-2 rounded-full bg-emerald-500 pulse"></span>RAG engine active
+    </div>
+  </header>
+
+  <main class="grid lg:grid-cols-[380px_1fr] gap-4 flex-1 min-h-0 overflow-y-auto lg:overflow-visible">
+    <!-- Left: knowledge base -->
+    <aside class="glass rounded-2xl p-4 flex flex-col gap-4 lg:min-h-0 lg:overflow-y-auto scroll">
+      <div class="flex items-center justify-between"><h2 class="font-semibold text-sm">Knowledge base</h2><span id="docCount" class="text-xs text-slate-400"></span></div>
+      <label id="drop" class="drop cursor-pointer rounded-xl border border-dashed border-white/20 p-5 text-center block" tabindex="0">
+        <div class="cloud text-indigo-300 mx-auto w-fit" id="cloudIc"></div>
+        <p class="text-sm font-medium mt-2">Drop files here or click to browse</p>
+        <p class="text-xs text-slate-400 mt-1">.pdf and .txt, up to 25 MB each</p>
+        <input id="file" type="file" accept=".pdf,.txt" multiple class="hidden">
+      </label>
+      <div class="flex flex-wrap gap-2 items-center"><span class="text-xs text-slate-400">No files handy? Add a sample:</span><div id="samples" class="flex flex-wrap gap-2"></div></div>
+      <div id="docs" class="flex flex-col gap-2.5"></div>
+      <div class="mt-auto pt-4 border-t border-white/10 grid grid-cols-2 gap-2.5">
+        <div class="col-span-2 rounded-xl bg-white/[.04] border border-white/10 p-3 flex items-end justify-between">
+          <div><p class="text-xs text-slate-400">Chunks processed</p><p id="chunks" class="text-2xl font-semibold mono tabular-nums">0</p></div>
+          <div class="text-emerald-400" id="layerIc"></div>
+        </div>
+        <div class="rounded-xl bg-white/[.04] border border-white/10 p-3"><p class="text-xs text-slate-400">Embedding model</p><p class="text-[13px] font-medium mono mt-1">text-embedding-3</p></div>
+        <div class="rounded-xl bg-white/[.04] border border-white/10 p-3"><p class="text-xs text-slate-400">Search threshold</p><p class="text-[13px] font-medium mono mt-1">Top 5 chunks</p></div>
+      </div>
+    </aside>
+
+    <!-- Right: chat -->
+    <section class="glass rounded-2xl flex flex-col min-h-[70vh] lg:min-h-0 overflow-hidden">
+      <div id="stream" class="flex-1 overflow-y-auto scroll p-4 sm:p-6 flex flex-col gap-5" aria-live="polite"></div>
+      <div class="p-3 sm:p-4 border-t border-white/10 bg-slate-900/50">
+        <div id="chips" class="flex gap-2 overflow-x-auto pb-3 scroll"></div>
+        <form id="form" class="ring-wrap"><div class="flex items-center gap-2 bg-[#111a30] rounded-[17px] pl-4 pr-2 py-2">
+          <input id="q" autocomplete="off" placeholder="Ask anything about your documents" class="flex-1 bg-transparent outline-none text-sm placeholder:text-slate-500 py-1.5 min-w-0" aria-label="Ask a question">
+          <button id="send" class="press w-10 h-10 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white grid place-items-center shrink-0" aria-label="Send"></button>
+        </div></form>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const P={
+file:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/>',
+cloud:'<path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"/><path d="M12 12v9m4-5-4-4-4 4"/>',
+spark:'<path d="M9.9 4.2 11 7.5a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 15.6 8.8 12.3a2 2 0 0 0-1.3-1.3l-3.3-1.1 3.3-1.1A2 2 0 0 0 8.8 7.5z"/><path d="M18 3v4M20 5h-4M18 17v4M20 19h-4"/>',
+trash:'<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
+radar:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path class="radar" d="M12 12 19 6"/>',
+send:'<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>',
+chev:'<path d="m6 9 6 6 6-6"/>',user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+layers:'<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5M3 17.5l9 5 9-5"/>',plus:'<path d="M12 5v14M5 12h14"/>',check:'<path d="m5 12 5 5 9-10"/>'};
+const ic=(n,c='w-4 h-4')=>`<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
+const $=s=>document.querySelector(s), esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+$('#logo').innerHTML=ic('spark','w-5 h-5');$('#cloudIc').innerHTML=ic('cloud','w-8 h-8');$('#layerIc').innerHTML=ic('layers','w-6 h-6');$('#send').innerHTML=ic('send','w-4 h-4');
+
+/* Sample corpus: [page, text]. n = simulated total chunk count */
+const SAMPLES=[
+{name:'Lecture_04_Quantum_Physics.pdf',type:'pdf',size:'2.4 MB',n:42,tok:18240,c:[
+[2,'The Schrödinger equation iħ ∂ψ/∂t = Ĥψ governs how the quantum state of a system evolves in time. For stationary states it reduces to the time-independent form Ĥψ = Eψ.'],
+[4,'Postulates of quantum mechanics: the state is described by a wavefunction ψ, observables are Hermitian operators, and measurements return eigenvalues. Normalisation requires ∫|ψ|² dx = 1, where |ψ|² is the probability density.'],
+[7,'A particle in a 1D infinite potential well of width L has energy levels E_n = n²h²/(8mL²) and wavefunctions ψ_n(x) = √(2/L) sin(nπx/L) for n = 1, 2, 3.'],
+[9,'The 3D box extends the result: E = (h²/8m)(n_x²/L_x² + n_y²/L_y² + n_z²/L_z²). Degenerate states appear when different sets of quantum numbers give the same energy.'],
+[11,'The Heisenberg uncertainty principle states Δx·Δp ≥ ħ/2. Position and momentum operators do not commute, [x, p] = iħ, which is the formula behind this limit.']]},
+{name:'Lab_Manual_Photoelectric.pdf',type:'pdf',size:'1.1 MB',n:28,tok:9480,c:[
+[3,'Aim of the lab: verify Einstein\'s photoelectric equation K_max = hf − φ by measuring the stopping potential V_s at different light frequencies. The slope of V_s against f equals h/e.'],
+[5,'Procedure: set the filter wavelength, adjust the retarding voltage until the photocurrent reads zero, and record V_s. Repeat for at least five frequencies and tabulate the readings.'],
+[8,'Precautions: shield the photocell from stray light, let the lamp warm up for ten minutes, and avoid touching the filters. Typical error sources are contact potential and dark current.']]},
+{name:'Notes_Double_Integrals.txt',type:'txt',size:'38 KB',n:16,tok:6120,c:[
+[1,'A double integral over a rectangle is evaluated as an iterated integral. Fubini\'s theorem lets you swap the order of integration when f is continuous.'],
+[2,'To change the order of integration, sketch the region and rewrite the bounds in the other variable. For example, ∫₀¹∫ₓ¹ f dy dx becomes ∫₀¹∫₀ʸ f dx dy. The area formula is A = ∬ dA.']]}];
+
+let docs=[],total=0,shown=0,busy=false,mid=0;
+const fmtTok=n=>n.toLocaleString();
+
+function renderDocs(){
+  $('#docCount').textContent=docs.length+(docs.length===1?' file':' files');
+  $('#docs').innerHTML=docs.length?docs.map(d=>`<div class="msg rounded-xl bg-white/[.04] border border-white/10 p-3 hover:border-white/20 transition">
+   <div class="flex items-start gap-3"><div class="w-9 h-9 rounded-lg grid place-items-center shrink-0 ${d.type==='pdf'?'bg-rose-500/15 text-rose-300':'bg-sky-500/15 text-sky-300'}">${ic('file','w-[18px] h-[18px]')}</div>
+   <div class="min-w-0 flex-1"><div class="flex items-center gap-2"><p class="text-[13px] font-medium truncate" title="${esc(d.name)}">${esc(d.name)}</p>
+   <span class="mono text-[10px] px-1.5 rounded bg-white/10 text-slate-300">.${d.type}</span></div>
+   <p class="text-xs text-slate-400 mt-0.5">${d.size} · <span class="mono">${fmtTok(d.tok)}</span> tokens</p></div>
+   <button data-del="${d.id}" class="press text-slate-500 hover:text-rose-400 p-1" aria-label="Remove ${esc(d.name)}">${ic('trash')}</button></div>
+   <div class="bar mt-2.5"><i style="width:${d.prog}%"></i></div>
+   <p class="text-xs mt-1.5 ${d.ready?'text-emerald-400':'text-amber-300'} flex items-center gap-1.5">${d.ready?ic('check','w-3 h-3')+'Indexed '+d.n+' chunks':'Embedding… '+Math.round(d.prog)+'%'}</p></div>`).join('')
+  :`<p class="text-sm text-slate-400 text-center py-4">Nothing indexed yet. Add a file to start asking questions.</p>`;
+  $('#samples').innerHTML=SAMPLES.filter(s=>!docs.some(d=>d.name===s.name)).map((s,i)=>`<button data-s="${s.name}" class="press text-xs rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-2 py-1 flex items-center gap-1">${ic('plus','w-3 h-3')}${s.name.split('_').slice(0,2).join(' ').replace(/\.\w+$/,'')}</button>`).join('')||'<span class="text-xs text-emerald-400">All samples added</span>';
+}
+function countTo(){const t=docs.filter(d=>d.ready).reduce((a,d)=>a+d.n,0);const from=shown;const t0=performance.now();
+  (function f(now){const k=Math.min(1,(now-t0)/600);shown=Math.round(from+(t-from)*k);$('#chunks').textContent=shown;if(k<1)requestAnimationFrame(f)})(t0)}
+function addDoc(o){
+  const d={id:'d'+Math.random().toString(36).slice(2),prog:0,ready:false,...o};docs.push(d);renderDocs();
+  const iv=setInterval(()=>{d.prog=Math.min(100,d.prog+8+Math.random()*12);if(d.prog>=100){d.ready=true;clearInterval(iv);countTo()}renderDocs()},150);
+}
+function addSample(name,instant){const s=SAMPLES.find(x=>x.name===name);addDoc({...s,c:s.c.map(x=>({p:x[0],t:x[1]}))});if(instant)docs.at(-1).prog=100}
+function handleFiles(fs){[...fs].forEach(f=>{
+  const ext=f.name.split('.').pop().toLowerCase();if(!['pdf','txt'].includes(ext))return toast('Only .pdf and .txt files are supported');
+  const size=f.size>1048576?(f.size/1048576).toFixed(1)+' MB':Math.max(1,Math.round(f.size/1024))+' KB';
+  const base={name:f.name,type:ext,size,tok:Math.round(f.size/4.2),n:Math.max(3,Math.round(f.size/1800))};
+  if(ext==='txt'){f.text().then(t=>{const ss=t.match(/[^.!?\n]+[.!?]?/g)||[t];const c=[];let cur='';ss.forEach(s=>{cur+=s+' ';if(cur.length>380){c.push({p:c.length+1,t:cur.trim()});cur=''}});if(cur.trim())c.push({p:c.length+1,t:cur.trim()});addDoc({...base,n:c.length,tok:Math.round(t.length/4),c})})}
+  else{addDoc({...base,c:[{p:1,t:'Text extraction for uploaded PDFs runs on the server in the full build, so this demo indexes the file size only.'}]})}})}
+function toast(m){const t=document.createElement('div');t.className='msg fixed bottom-6 left-1/2 -translate-x-1/2 glass rounded-xl px-4 py-2 text-sm z-50';t.textContent=m;document.body.append(t);setTimeout(()=>t.remove(),2800)}
+
+/* Retrieval simulation */
+const STOP=new Set('the a an of to in on is are and or for with what how from this that about me my it as be by at do does can you your explain'.split(' '));
+const stem=w=>w.length>4?w.replace(/(ing|es|s)$/,''):w;
+const tok=s=>s.toLowerCase().replace(/[^a-z0-9ħψ]+/g,' ').split(' ').filter(w=>w.length>1&&!STOP.has(w)).map(stem);
+function retrieve(q){
+  const qt=[...new Set(tok(q))],ready=docs.filter(d=>d.ready),all=[];
+  ready.forEach(d=>d.c.forEach(c=>{const bag=new Set(tok(c.t+' '+d.name.replace(/[_.]/g,' ')+' page '+c.p+' '+(/=|∫/.test(c.t)?'formula equation':'')+' '+(/aim|procedure/i.test(c.t)?'experiment':'')));
+    const hits=qt.filter(w=>bag.has(w)).length;all.push({d,c,hits,s:qt.length?hits/qt.length:0})}));
+  let r=all.filter(x=>x.hits>0).sort((a,b)=>b.s-a.s);
+  if(/compar/i.test(q)){r=ready.map(d=>all.filter(x=>x.d===d).sort((a,b)=>b.s-a.s)[0]).filter(Boolean)}
+  if(/formula|equation/i.test(q))r=all.filter(x=>/=|∫/.test(x.c.t)).sort((a,b)=>b.s-a.s);
+  return r.slice(0,4).map((x,i)=>({...x,pct:Math.min(98,Math.round(62+x.s*34-i*3+(x.c.p%4)))}));
+}
+const gist=(t,formula)=>{const ss=t.split(/(?<=\.)\s+/);return (formula&&ss.find(s=>/=|∫/.test(s)))||ss[0]};
+function compose(q,res){
+  const f=/formula|equation/i.test(q),cm=/compar/i.test(q),sm=/summar/i.test(q);
+  const lead=cm?'Here is how your documents line up on this:':f?'These are the key formulas in your files:':sm?'Here is a short summary of what the retrieved passages cover:':'Based on your documents:';
+  return lead+'\n\n'+res.map((r,i)=>(cm?`In ${r.d.name.replace(/_/g,' ').replace(/\.\w+$/,'')}: `:'')+gist(r.c.t,f)+` ⟦${i}⟧`).join('\n\n');
+}
+
+/* Chat UI */
+const stream=$('#stream');const bottom=()=>stream.scrollTo({top:stream.scrollHeight});
+function aiShell(id){const w=document.createElement('div');w.className='msg flex gap-3';w.innerHTML=`<div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 grid place-items-center text-white shrink-0">${ic('spark')}</div><div class="min-w-0 flex-1 max-w-[760px]"><div class="status text-xs text-indigo-300 mono flex items-center gap-2"></div><div class="body text-[14px] leading-relaxed whitespace-pre-line mt-1"></div><div class="srcs mt-3"></div></div>`;stream.append(w);bottom();return w}
+function userMsg(t){const w=document.createElement('div');w.className='msg flex gap-3 justify-end';w.innerHTML=`<div class="rounded-2xl rounded-tr-md bg-indigo-500/20 border border-indigo-400/30 px-4 py-2.5 text-sm max-w-[80%]">${esc(t)}</div><div class="w-8 h-8 rounded-lg bg-white/10 grid place-items-center text-slate-300 shrink-0">${ic('user')}</div>`;stream.append(w);bottom()}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function ask(q){
+  q=q.trim();if(!q||busy)return;busy=true;$('#q').value='';userMsg(q);const id=++mid,w=aiShell(id),st=w.querySelector('.status'),body=w.querySelector('.body');
+  const stage=t=>st.innerHTML=ic('radar','w-3.5 h-3.5')+t;
+  if(!docs.some(d=>d.ready)){stage('Checking knowledge base…');await sleep(600);st.innerHTML='';body.textContent='Your knowledge base has no indexed files yet. Add a file or one of the samples on the left, then ask again.';busy=false;return}
+  stage('Searching vector index…');await sleep(850);
+  const res=retrieve(q);stage(`Extracting top ${res.length||0} chunks…`);await sleep(850);stage('Generating response…');await sleep(750);
+  st.innerHTML='';
+  if(!res.length){body.textContent='I could not find anything about that in your uploaded files, so I will not guess. Try rephrasing, or add the document that covers it.';busy=false;return}
+  const text=compose(q,res),words=text.split(/(?<=\s)/);let acc='';body.classList.add('caret');
+  for(const wd of words){acc+=wd;body.innerHTML=esc(acc).replace(/⟦(\d)⟧/g,(_,i)=>`<span class="cite" data-m="${id}" data-i="${i}" tabindex="0">[Source ${+i+1}]</span>`).replace(/⟦\d?$/,'');bottom();await sleep(22)}
+  body.classList.remove('caret');
+  const qt=[...new Set(q.toLowerCase().split(/\W+/).filter(x=>x.length>3&&!STOP.has(x)))];
+  const hl=t=>{let h=esc(t);qt.forEach(x=>h=h.replace(new RegExp('('+x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\w*)','gi'),'<mark>$1</mark>'));return h};
+  w.querySelector('.srcs').innerHTML=`<button class="tog press text-xs text-slate-300 hover:text-white flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5" aria-expanded="false">${ic('file','w-3.5 h-3.5')}${res.length} sources ${ic('chev','w-3.5 h-3.5 chv transition-transform')}</button>
+  <div class="list hidden mt-3 grid gap-2.5">${res.map((r,i)=>`<div class="src rounded-xl bg-white/[.03] p-3" id="s${id}-${i}"><div class="flex items-center justify-between gap-3"><p class="mono text-xs text-slate-200 truncate">[${i+1}] ${esc(r.d.name)} · p.${r.c.p}</p><span class="mono text-xs text-emerald-400 shrink-0">${r.pct}% match</span></div>
+  <div class="bar my-2"><i style="width:${r.pct}%"></i></div><p class="mono text-[12px] leading-relaxed text-slate-300">${hl(r.c.t)}</p></div>`).join('')}</div>`;
+  busy=false;bottom();
+}
+stream.addEventListener('click',e=>{const b=e.target.closest('.tog');if(!b)return;const l=b.nextElementSibling,o=l.classList.toggle('hidden');b.setAttribute('aria-expanded',!o);b.querySelector('.chv').style.transform=o?'':'rotate(180deg)';bottom()});
+const cardOf=el=>document.getElementById(`s${el.dataset.m}-${el.dataset.i}`);
+stream.addEventListener('mouseover',e=>{const c=e.target.closest('.cite');if(!c)return;const l=c.closest('.flex-1').querySelector('.list'),b=c.closest('.flex-1').querySelector('.tog');if(l.classList.contains('hidden'))b.click();cardOf(c).classList.add('hl');cardOf(c).scrollIntoView({block:'nearest',behavior:'smooth'})});
+stream.addEventListener('mouseout',e=>{const c=e.target.closest('.cite');if(c&&cardOf(c))cardOf(c).classList.remove('hl')});
+
+const CHIPS=['Summarize page 4','Extract key formulas','Compare lab manual vs lecture','What is the energy of a particle in a box?','How do I change the order of integration?'];
+$('#chips').innerHTML=CHIPS.map(c=>`<button type="button" class="press shrink-0 text-xs rounded-full border border-white/10 bg-white/5 hover:border-indigo-400/60 hover:bg-indigo-500/10 px-3 py-1.5">${c}</button>`).join('');
+$('#chips').onclick=e=>{const b=e.target.closest('button');if(!b||busy)return;$('#q').value=b.textContent;$('#q').focus();setTimeout(()=>ask(b.textContent),350)};
+$('#form').onsubmit=e=>{e.preventDefault();ask($('#q').value)};
+$('#docs').onclick=e=>{const b=e.target.closest('[data-del]');if(b){docs=docs.filter(d=>d.id!==b.dataset.del);renderDocs();countTo()}};
+$('#samples').onclick=e=>{const b=e.target.closest('[data-s]');if(b)addSample(b.dataset.s)};
+const drop=$('#drop');['dragenter','dragover'].forEach(v=>drop.addEventListener(v,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(v=>drop.addEventListener(v,e=>{e.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',e=>handleFiles(e.dataTransfer.files));$('#file').onchange=e=>{handleFiles(e.target.files);e.target.value=''};
+drop.onkeydown=e=>{if(e.key==='Enter')$('#file').click()};
+
+addSample('Lecture_04_Quantum_Physics.pdf');renderDocs();
+const hello=aiShell(0);hello.querySelector('.body').textContent='Hi! I answer only from the files in your knowledge base, and every claim comes with the passage it was drawn from. Try a suggestion below, or add another sample file first.';
+</script>
+</body>
+</html>
